@@ -1,0 +1,81 @@
+---
+title: "Lab 2 - Quantitative Linguistics"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: html_notebook
+---
+
+## Kenna Reagan
+
+# MEANS OF TRANSPORTATION TO WORK BY LANGUAGE SPOKEN AT HOME
+
+  I grew up in the state of Arkansas. It can be very difficult to get around without a car. For the most part, the state is not walkable. If there are sidewalks, they are often run down. Buildings are very spread apart. There is no public transportation whatsoever. It is nearly impossible to get around without a car. I was driving within two weeks of turning 14, the earliest I could possibly legally drive. I couldn't have imagined life without a car. 
+
+  For this lab, I'm choosing to look at a [dataset](https://data.census.gov/cedsci/table?q=&t=Language%20Spoken%20at%20Home&g=0400000US05&y=2019&d=ACS%205-Year%20Estimates%20Detailed%20Tables&tid=ACSDT5Y2019.B08113)
+ pulled from the U.S. Census website. It's called "Means of Transportation to Work by Language Spoken at Home and Ability to Speak English." I am interested to know if there is a correlation between the language someone speaks at home and their means of transportation to work in a place like Arkansas where it seems so difficult to get around without your own vehicle. 
+
+```{r}
+library(tidycensus)
+library(tidyverse)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+census_api_key(api_key)
+
+#filtering out my table so I can find the codes for the variables I need
+v19 <- load_variables(year=2019,
+                      dataset="acs5",
+                      cache=TRUE)
+v_filtered<-filter(v19, str_detect(name,"B08113"))
+#v_filtered
+
+eng_var <- c(drive="B08113_010",carpool="B08113_018",public="B08113_026",walk="B08113_034",other="B08113_042",wfh="B08113_050")
+span_var <- c(drive="B08113_011",carpool="B08113_019",public="B08113_027",walk="B08113_035",other="B08113_043",wfh="B08113_051")
+other_var <- c(drive="B08113_014",carpool="B08113_022",public="B08113_030",walk="B08113_038",other="B08113_046",wfh="B08113_054")
+
+english <- get_acs(geography="state",
+                 state="AR",
+                 variables=eng_var,
+                 summary_var="B08113_002")
+english <- english %>%
+  mutate(English=100*(estimate/summary_est))
+english <- select(english, -c(NAME,moe,summary_est,summary_moe,GEOID,estimate))
+
+
+spanish <- get_acs(geography="state",
+                 state="AR",
+                 variables=span_var,
+                 summary_var="B08113_003")
+spanish <- spanish %>%
+  mutate(Spanish=100*(estimate/summary_est))
+spanish <- select(spanish, -c(NAME,moe,summary_est,summary_moe,GEOID,estimate))
+
+
+other <- get_acs(geography="state",
+                 state="AR",
+                 variables=other_var,
+                 summary_var="B08113_006")
+other <- other %>%
+  mutate(Other=100*(estimate/summary_est))
+other <- select(other, -c(NAME,moe,summary_est,summary_moe,GEOID,estimate))
+
+english$Spanish <- spanish$Spanish
+english$Other <- other$Other
+
+transportation <- english %>%
+  rename(mode = variable)
+
+df <- melt(transportation,  id.vars = 'mode', variable.name = 'transportation')
+
+ggplot(df, aes(mode,value,fill=mode)) + 
+  geom_col() + 
+  facet_wrap(~transportation) +
+  ggtitle("Means of Transportation to Work by Language Spoken at Home") +
+  labs(y="Percentage of Speakers", x = "Mode of Transportation") +
+  theme(axis.text.x=element_text(angle=90, hjust=1))
+
+
+```
+  Based on the tables, in all groups, driving had the highest percentage by far, although it is interesting to note that the percentage is higher for English speakers. It's also interesting to note that both those who speak Spanish at home and those who speak another lanugage at home nearly double the percentage of English speakers who carpool. The percentages of other forms of transportation are all much lower in all categories. 
+
+  This data is useful because it can be used to show how Arkansans are getting to and from work. We can't determine based on this graph, or even the table the data came from, whether other options would be utilized if given the choice. If this data were viewed alongside data about the availability of transportation options and where they exist, this would be invaluable in providing transportation options to Arkansans who need them. There is more data in this table as well, regarding how well non-native English speakers speak English. This could help determine if Arkansans are disproportionately affected by factors, such as their native language and/or how well they speak English. 
